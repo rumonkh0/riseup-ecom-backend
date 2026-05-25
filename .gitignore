@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.env
+config/config.env
+.qodo
+logs/
+uploads/*
+!uploads/.gitkeep

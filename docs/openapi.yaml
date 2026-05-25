@@ -1,0 +1,1162 @@
+openapi: 3.0.3
+info:
+  title: Riseup Ecommerce API
+  description: |
+    Production REST API for ecommerce (Node.js, Express, Prisma, MySQL).
+
+    ## Authentication
+    - Register/Login returns a JWT in the response body (`data.token`) and sets an **httpOnly** cookie `token`.
+    - Use **Bearer** auth in Swagger/Postman: `Authorization: Bearer <token>`
+    - Or enable cookies in your client for cookie-based auth.
+
+    ## Response format
+    ```json
+    { "success": true, "message": "...", "data": {}, "meta": {} }
+    ```
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Products
+  - name: Categories
+  - name: Brands
+  - name: Cart
+  - name: Orders
+  - name: Coupons
+  - name: Reviews
+  - name: Wishlist
+  - name: Admin
+  - name: Uploads
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            totalPages: { type: integer }
+            hasNextPage: { type: boolean }
+            hasPrevPage: { type: boolean }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    Register:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        phone: { type: string }
+
+    Login:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    ShippingAddress:
+      type: object
+      required: [fullName, phone, street, city, zipCode]
+      properties:
+        fullName: { type: string }
+        phone: { type: string }
+        street: { type: string }
+        city: { type: string }
+        state: { type: string }
+        zipCode: { type: string }
+        country: { type: string, default: US }
+
+    CreateOrder:
+      type: object
+      required: [shippingAddress, paymentMethod]
+      properties:
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        paymentMethod: { type: string, example: card }
+        couponCode: { type: string }
+        tax: { type: number, minimum: 0 }
+        shippingFee: { type: number, minimum: 0 }
+        items:
+          type: array
+          description: Omit to checkout from cart
+          items:
+            type: object
+            properties:
+              productId: { type: string, format: uuid }
+              quantity: { type: integer, minimum: 1 }
+
+    CreateProduct:
+      type: object
+      required: [name, description, price, stock, sku, categoryId]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        shortDescription: { type: string }
+        price: { type: number }
+        discountPrice: { type: number, nullable: true }
+        stock: { type: integer }
+        sku: { type: string }
+        barcode: { type: string }
+        categoryId: { type: string, format: uuid }
+        brandId: { type: string, format: uuid, nullable: true }
+        isFeatured: { type: boolean }
+        isPublished: { type: boolean }
+
+    AddToCart:
+      type: object
+      required: [productId]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, default: 1, minimum: 1, maximum: 99 }
+
+    CreateReview:
+      type: object
+      required: [productId, rating]
+      properties:
+        productId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        comment: { type: string }
+
+    CreateCoupon:
+      type: object
+      required: [code, discountType, discountValue]
+      properties:
+        code: { type: string }
+        description: { type: string }
+        discountType: { type: string, enum: [PERCENTAGE, FIXED] }
+        discountValue: { type: number }
+        minOrderValue: { type: number }
+        maxDiscount: { type: number }
+        usageLimit: { type: integer }
+        startsAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        isActive: { type: boolean }
+
+    Address:
+      type: object
+      required: [fullName, phone, street, city, zipCode]
+      properties:
+        label: { type: string }
+        fullName: { type: string }
+        phone: { type: string }
+        street: { type: string }
+        city: { type: string }
+        state: { type: string }
+        zipCode: { type: string }
+        country: { type: string, default: US }
+        isDefault: { type: boolean }
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: API is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+      responses:
+        '201':
+          description: Registered
+        '409':
+          description: Email exists
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: Login successful (sets cookie + returns token)
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (clears cookie)
+      responses:
+        '200':
+          description: Logged out
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security: [{ bearerAuth: [] }, { cookieAuth: [] }]
+      responses:
+        '200':
+          description: Profile
+        '401':
+          description: Unauthorized
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Verified
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Email sent if account exists
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Password reset
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Updated
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend verification email
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sent
+
+  /users/profile:
+    patch:
+      tags: [Users]
+      summary: Update profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Updated
+
+  /users/avatar:
+    patch:
+      tags: [Users]
+      summary: Update avatar (Cloudinary)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar updated
+
+  /users/addresses:
+    get:
+      tags: [Users]
+      summary: List addresses
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Addresses
+    post:
+      tags: [Users]
+      summary: Add address
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: Created
+
+  /users/addresses/{id}:
+    patch:
+      tags: [Users]
+      summary: Update address
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Users]
+      summary: Delete address
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: role
+          in: query
+          schema: { type: string, enum: [USER, ADMIN, VENDOR] }
+      responses:
+        '200':
+          description: User list
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User
+    delete:
+      tags: [Users]
+      summary: Delete user (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /users/{id}/role:
+    patch:
+      tags: [Users]
+      summary: Update user role (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [USER, ADMIN, VENDOR] }
+      responses:
+        '200':
+          description: Updated
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List products (search, filter, pagination)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: brandId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: minPrice
+          in: query
+          schema: { type: number }
+        - name: maxPrice
+          in: query
+          schema: { type: number }
+        - name: isFeatured
+          in: query
+          schema: { type: string, enum: ['true', 'false'] }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc, newest, rating, sold]
+      responses:
+        '200':
+          description: Product list
+    post:
+      tags: [Products]
+      summary: Create product (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CreateProduct'
+                - type: object
+                  properties:
+                    image:
+                      type: string
+                      format: binary
+      responses:
+        '201':
+          description: Created
+
+  /products/featured:
+    get:
+      tags: [Products]
+      summary: Featured products
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        '200':
+          description: Featured list
+
+  /products/{slug}:
+    get:
+      tags: [Products]
+      summary: Get product by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product detail
+
+  /products/id/{id}/related:
+    get:
+      tags: [Products]
+      summary: Related products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Related products
+
+  /products/{id}:
+    patch:
+      tags: [Products]
+      summary: Update product (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Products]
+      summary: Delete product (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      parameters:
+        - name: tree
+          in: query
+          schema: { type: string, enum: ['true'] }
+          description: Return nested tree
+        - name: parentId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Categories
+    post:
+      tags: [Categories]
+      summary: Create category (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                parentId: { type: string, format: uuid }
+                image: { type: string, format: binary }
+      responses:
+        '201':
+          description: Created
+
+  /categories/{slug}:
+    get:
+      tags: [Categories]
+      summary: Get category by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Category
+
+  /categories/{id}:
+    patch:
+      tags: [Categories]
+      summary: Update category
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Categories]
+      summary: Delete category
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /brands:
+    get:
+      tags: [Brands]
+      summary: List brands
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Brands
+    post:
+      tags: [Brands]
+      summary: Create brand (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                image: { type: string, format: binary }
+      responses:
+        '201':
+          description: Created
+
+  /brands/{slug}:
+    get:
+      tags: [Brands]
+      summary: Get brand by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Brand
+
+  /brands/{id}:
+    patch:
+      tags: [Brands]
+      summary: Update brand
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Brands]
+      summary: Delete brand
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Get cart
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Cart with items
+    post:
+      tags: [Cart]
+      summary: Add to cart
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToCart'
+      responses:
+        '200':
+          description: Updated cart
+    delete:
+      tags: [Cart]
+      summary: Clear cart
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Cleared
+
+  /cart/items/{itemId}:
+    patch:
+      tags: [Cart]
+      summary: Update item quantity
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 99 }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Cart]
+      summary: Remove item
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Place order (from cart or items)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+      responses:
+        '201':
+          description: Order created
+
+  /orders/my:
+    get:
+      tags: [Orders]
+      summary: My orders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: orderStatus
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED]
+      responses:
+        '200':
+          description: Orders
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Order
+
+  /orders/{id}/cancel:
+    patch:
+      tags: [Orders]
+      summary: Cancel order
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Cancelled
+
+  /orders/manage/all:
+    get:
+      tags: [Orders]
+      summary: List all orders (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: orderStatus
+          in: query
+          schema: { type: string }
+        - name: paymentStatus
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: All orders
+
+  /orders/manage/{id}/status:
+    patch:
+      tags: [Orders]
+      summary: Update order status (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderStatus]
+              properties:
+                orderStatus:
+                  type: string
+                  enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED]
+                paymentStatus:
+                  type: string
+                  enum: [PENDING, PAID, FAILED, REFUNDED]
+                transactionId: { type: string }
+      responses:
+        '200':
+          description: Updated
+
+  /coupons/validate:
+    post:
+      tags: [Coupons]
+      summary: Validate coupon
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, subtotal]
+              properties:
+                code: { type: string }
+                subtotal: { type: number }
+      responses:
+        '200':
+          description: Valid coupon
+
+  /coupons:
+    get:
+      tags: [Coupons]
+      summary: List coupons (Admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Coupons
+    post:
+      tags: [Coupons]
+      summary: Create coupon (Admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCoupon'
+      responses:
+        '201':
+          description: Created
+
+  /coupons/{id}:
+    patch:
+      tags: [Coupons]
+      summary: Update coupon (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Coupons]
+      summary: Delete coupon (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /reviews/product/{productId}:
+    get:
+      tags: [Reviews]
+      summary: Product reviews
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Reviews
+
+  /reviews:
+    post:
+      tags: [Reviews]
+      summary: Add review
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReview'
+      responses:
+        '201':
+          description: Created
+
+  /reviews/{id}:
+    patch:
+      tags: [Reviews]
+      summary: Update review
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                title: { type: string }
+                comment: { type: string }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Reviews]
+      summary: Delete review
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /wishlist:
+    get:
+      tags: [Wishlist]
+      summary: Get wishlist
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Wishlist
+    post:
+      tags: [Wishlist]
+      summary: Add to wishlist
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Added
+
+  /wishlist/{productId}:
+    delete:
+      tags: [Wishlist]
+      summary: Remove from wishlist
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Removed
+
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Dashboard analytics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Stats, revenue, top products, recent orders
+
+  /admin/sales:
+    get:
+      tags: [Admin]
+      summary: Sales summary
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: period
+          in: query
+          schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+      responses:
+        '200':
+          description: Sales summary
+
+  /uploads/image:
+    post:
+      tags: [Uploads]
+      summary: Upload single image (Admin/Vendor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+                folder: { type: string, example: products }
+      responses:
+        '200':
+          description: Cloudinary URL
+
+  /uploads/images:
+    post:
+      tags: [Uploads]
+      summary: Upload multiple images
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+                folder: { type: string }
+      responses:
+        '200':
+          description: URLs
