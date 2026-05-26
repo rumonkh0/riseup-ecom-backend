@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  distDir: "/home/rumon/.next-ecom-frontend",
   allowedDevOrigins: ["unreportorial-arthrosporic-lanny.ngrok-free.dev"],
   turbopack: {
     root: process.cwd(),
