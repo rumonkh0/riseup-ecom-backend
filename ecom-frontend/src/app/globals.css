@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FFFBF5;
+  --color-cream-dark: #FFF5E8;
+  --color-warm-100: #FEF3E2;
+  --color-warm-200: #FDDCAB;
+  --color-warm-300: #FBC474;
+  --color-warm-400: #F9A826;
+  --color-warm-500: #F7941D;
+  --color-warm-600: #E07B0D;
+  --color-navy: #1E293B;
+  --color-navy-light: #334155;
+  --color-navy-dark: #0F172A;
+  --color-gold: #E6A817;
+  --color-gold-light: #F5D77A;
+  --color-rose: #F43F5E;
+  --color-mint: #A7F3D0;
+  --color-soft-gray: #F8FAFC;
+
+  --font-heading: 'Quicksand', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+.dark {
+  --color-cream: #0B0F19;
+  --color-cream-dark: #070A12;
+  --color-white: #161E2E;
+  --color-soft-gray: #0D1322;
+  --color-navy: #F8FAFC;
+  --color-navy-light: #CBD5E1;
+  --color-navy-dark: #FFFFFF;
+  --color-warm-100: #232D3F;
+  --color-warm-200: #334155;
+  --color-warm-300: #475569;
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure sticky header doesn't overlap scroll targets */
+[id] {
+  scroll-margin-top: 100px;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-cream);
+  color: var(--color-navy);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-slide-out-right {
+  animation: slideOutRight 0.3s ease-in forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s ease-in-out infinite;
+}
+
+/* Staggered animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-warm-300);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-warm-500);
+}
+
+/* Product Card Hover */
+.product-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+}
+
+/* Glass Effect */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 251, 245, 0.85);
+}
+.dark .glass {
+  background: rgba(11, 15, 25, 0.85);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-warm-500), var(--color-warm-600));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Button shine effect */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255,255,255,0.15),
+    transparent
+  );
+  transform: rotate(30deg);
+  transition: all 0.6s;
+}
+.btn-shine:hover::after {
+  left: 100%;
+}
+
+/* Variant swatch */
+.variant-swatch {
+  transition: all 0.2s ease;
+}
+.variant-swatch:hover {
+  transform: scale(1.15);
+}
+.variant-swatch.active {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 3px var(--color-warm-500);
+}
